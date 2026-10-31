@@ -100,7 +100,9 @@ fun AppsScreen(data: AppData, tv: TvState, store: Store, controller: Controller)
     val apps = data.shortcuts.filter { it.isApp }
     val macros = data.shortcuts.filterNot { it.isApp }
     val savedPackages = remember(data.shortcuts) {
-        data.shortcuts.flatMap { s -> s.steps.filterIsInstance<Step.App>().map { it.pkg } }.toSet()
+        // Includes tiles that launch by link (YouTube, Netflix), so their app isn't offered again.
+        (data.shortcuts.flatMap { s -> s.steps.filterIsInstance<Step.App>().map { it.pkg } } +
+            data.shortcuts.mapNotNull { LogoFinder.iconPackage(it) }).toSet()
     }
     val onScreen = tv.currentApp?.takeIf { it !in savedPackages && it !in IGNORED_PACKAGES }
 

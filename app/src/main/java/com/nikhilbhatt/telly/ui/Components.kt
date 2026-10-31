@@ -220,27 +220,23 @@ fun GridTile(
     ) {
         Box(Modifier.fillMaxWidth().aspectRatio(1.3f).clip(RoundedCornerShape(18.dp))) {
             LogoArt(name, logo, color, Modifier.fillMaxSize(), fill = fillLogo)
+        }
+        // The channel number sits beside the name rather than on the logo, where it would cover wordmarks.
+        Row(Modifier.padding(start = 4.dp, top = 6.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             if (badge != null) {
                 Text(
                     badge,
-                    color = Color.White,
+                    color = Palette.Accent,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(6.dp)
-                        .background(Color.Black.copy(alpha = 0.45f), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                        .background(Palette.Accent.copy(alpha = 0.14f), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 5.dp, vertical = 1.dp),
                 )
+                Spacer(Modifier.width(6.dp))
             }
+            Text(name, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        Text(
-            name,
-            style = MaterialTheme.typography.labelLarge,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(start = 4.dp, top = 6.dp, end = 4.dp),
-        )
         if (subtitle != null) {
             Text(
                 subtitle,
