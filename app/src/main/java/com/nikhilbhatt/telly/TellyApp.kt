@@ -33,6 +33,7 @@ class TellyApp : Application() {
         private set
     lateinit var logos: LogoFinder
         private set
+    val ir: IrBlaster by lazy { IrBlaster(this) }
 
     /** App tiles already looked up this session, so a missing icon isn't fetched again and again. */
     private val iconAttempts = mutableSetOf<String>()
@@ -62,7 +63,7 @@ class TellyApp : Application() {
         super.onCreate()
         store = Store(filesDir, scope)
         link = TvLink(scope) { identity() }
-        controller = Controller(scope, link, store) { TvLink(scope) { identity() } }
+        controller = Controller(scope, link, store, { ir }) { TvLink(scope) { identity() } }
         logos = LogoFinder { store.logoDir }
 
         store.data

@@ -12,6 +12,8 @@ An Android remote for Android TV and Google TV devices: set-top boxes like the *
 - **Phone volume buttons** control the TV while the app is open.
 - **Live status:** connected or standby, the app currently on screen, and the volume level.
 - **Several devices:** switch between your box and TV, and send channel tiles to a specific one.
+- **IR power-on:** on phones with an IR blaster, Telly can turn the TV on even after a power cut, when Wi-Fi can't reach it. A one-time search tries common TV power codes until yours reacts.
+- **One power button for the TV and box:** a box's power button can switch the TV it's plugged into.
 - **Wake-on-LAN:** used by the power button when the TV is unreachable. The MAC address is read from the TV's certificate during pairing.
 
 ## Install
@@ -39,7 +41,7 @@ Any device running **Android TV or Google TV** with the "Android TV Remote Servi
 
 It does **not** work with BPL's cheaper Linux-based TVs or webOS models. Those use different protocols or IR only.
 
-Turning a TV **on** works when it keeps its network on in standby (often a "Quick start" or "Network standby" setting). Otherwise, Telly sends a Wake-on-LAN packet, and HDMI-CEC from a box can wake the TV.
+Turning a TV **on** over Wi-Fi works when it was switched off with its remote: Android TVs stay on the network in standby. After a power cut the TV's network is off, so Telly uses the phone's IR blaster if it has one (Devices, edit the TV, **IR power**, **Find my TV's code**), and Wake-on-LAN otherwise.
 
 ## How it works
 
@@ -93,5 +95,7 @@ keyPassword=…
 ## Credits
 
 The protocol was reverse-engineered by the community. This app builds on the documentation and reference code in [tronikos/androidtvremote2](https://github.com/tronikos/androidtvremote2), [louis49/androidtv-remote](https://github.com/louis49/androidtv-remote), and Google's [google-tv-pairing-protocol](https://android.googlesource.com/platform/external/google-tv-pairing-protocol/).
+
+IR power codes come from [Flipper-IRDB](https://github.com/Lucaslhm/Flipper-IRDB) (CC0).
 
 App icons and channel logos are trademarks of their owners. Telly downloads them at runtime from Google Play and Wikipedia and does not ship them.

@@ -31,6 +31,7 @@ class Controller(
     private val scope: CoroutineScope,
     private val link: TvLink,
     private val store: Store,
+    private val ir: () -> IrBlaster,
     /** Makes a second, short-lived connection, e.g. to the TV while the remote controls a box. */
     private val newLink: () -> TvLink,
 ) {
@@ -81,10 +82,21 @@ class Controller(
      * One that lost mains power doesn't; Wake-on-LAN is the last resort, for TVs that support it.
      */
     private suspend fun togglePower(l: TvLink, device: Device, quiet: Boolean) {
-        if (l.awaitConnected(if (quiet) 1_500 else 8_000)) {
+        // Wait until the connection either works or fails, rather than a fixed time.
+        withTimeoutOrNull(if (quiet) 1_500 else 8_000) {
+            l.state.first { it.status == LinkStatus.Connected || it.status == LinkStatus.Offline || it.status == LinkStatus.NeedsPairing }
+        }
+        if (l.state.value.status == LinkStatus.Connected) {
             val wasOn = l.state.value.screenOn
             l.sendKey(Keys.POWER)
             if (!quiet) _messages.tryEmit(if (wasOn == false) "Turning on ${device.name}" else "Turning off ${device.name}")
+            return
+        }
+        // Unreachable usually means the TV lost power; only IR gets through then.
+        val code = device.irPower
+        if (code != null && ir().available) {
+            withContext(Dispatchers.IO) { ir().send(code) }
+            _messages.tryEmit("Sent IR power to ${device.name}. Point the phone at the TV.")
             return
         }
         if (l.state.value.status == LinkStatus.NeedsPairing) {
@@ -163,10 +175,7 @@ class Controller(
         val remembered = store.data.value.launchLinks[pkg]
         val candidates = (listOfNotNull(remembered) + Presets.appLinks[pkg].orEmpty() + appLink(pkg)).distinct()
         for (candidate in candidates) {
-            if (link.state.value.currentApp == CHOOSER) {
-                link.sendKey(Keys.BACK)
-                delay(400)
-            }
+            val chooserBefore = link.state.value.currentApp == CHOOSER
             val seen = link.rejected.value.first
             if (!link.sendLink(candidate)) return false
             val outcome = withTimeoutOrNull(LAUNCH_CHECK_MS) {
@@ -174,7 +183,7 @@ class Controller(
                     when {
                         count > seen && rejectedLink == candidate -> Launch.Rejected
                         state.currentApp == pkg -> Launch.Opened
-                        state.currentApp == CHOOSER -> Launch.Chooser
+                        state.currentApp == CHOOSER && !chooserBefore -> Launch.Chooser
                         else -> null
                     }
                 }.filterNotNull().first()
@@ -182,8 +191,11 @@ class Controller(
             when (outcome) {
                 Launch.Rejected -> continue
                 Launch.Chooser -> {
-                    link.sendKey(Keys.BACK)
-                    delay(400)
+                    // The TV asks which app should open the link. Leave it up: once the user picks
+                    // "Always", this link opens the app directly from then on.
+                    if (candidate != remembered) store.update { it.copy(launchLinks = it.launchLinks + (pkg to candidate)) }
+                    _messages.tryEmit("On the TV, pick ${appName(pkg)} and then Always. Next time it opens straight away.")
+                    return true
                 }
                 Launch.Opened -> {
                     if (candidate != remembered) store.update { it.copy(launchLinks = it.launchLinks + (pkg to candidate)) }
@@ -193,9 +205,12 @@ class Controller(
                 null -> return true
             }
         }
-        _messages.tryEmit("Couldn't open $pkg. Is it installed on the TV?")
+        _messages.tryEmit("Couldn't open ${appName(pkg)}. Is it installed on the TV?")
         return true
     }
+
+    private fun appName(pkg: String) =
+        store.data.value.shortcuts.firstOrNull { s -> s.steps.any { it is Step.App && it.pkg == pkg } }?.name ?: pkg
 
     /**
      * Channel numbers only reach live TV: Airtel boxes take them on their home screen but not inside

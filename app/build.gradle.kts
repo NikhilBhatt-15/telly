@@ -15,8 +15,8 @@ android {
         applicationId = "com.nikhilbhatt.telly"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.0.2"
+        versionCode = 4
+        versionName = "1.1.0"
     }
 
     // Release signing comes from keystore.properties (kept out of git); without it, release builds are unsigned.

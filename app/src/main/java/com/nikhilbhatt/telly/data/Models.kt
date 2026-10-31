@@ -36,7 +36,15 @@ data class Device(
     val confirmWithOk: Boolean = false,
     /** Device whose power the power button toggles, e.g. the TV a box is plugged into. Null means this one. */
     val powerDeviceId: String? = null,
+    /** IR power code for this TV, sent from the phone's IR blaster when the TV can't be reached over Wi-Fi. */
+    val irPower: IrCode? = null,
 )
+
+/** One IR command in Flipper-IRDB terms: protocol NEC, NECext or Samsung32. */
+@Serializable
+data class IrCode(val protocol: String, val address: Int, val command: Int) {
+    fun label() = "%s %04X/%04X".format(protocol, address, command)
+}
 
 @Serializable
 data class Channel(

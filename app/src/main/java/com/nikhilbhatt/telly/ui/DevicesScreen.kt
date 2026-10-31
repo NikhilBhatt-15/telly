@@ -60,6 +60,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nikhilbhatt.telly.BuildConfig
+import com.nikhilbhatt.telly.IrBlaster
+import com.nikhilbhatt.telly.data.IrCode
+import androidx.compose.material3.AlertDialog
 import com.nikhilbhatt.telly.FoundTv
 import com.nikhilbhatt.telly.atv.PairingException
 import com.nikhilbhatt.telly.atv.PairingSession
@@ -379,6 +382,44 @@ private fun PairSheet(existing: Device?, onDone: (Device) -> Unit, onDismiss: ()
     }
 }
 
+/**
+ * Universal-remote style search: send one candidate power code at a time until the TV reacts.
+ * The codes are ordered by how many brands share them, so the likely ones come first.
+ */
+@Composable
+private fun IrSearchDialog(ir: IrBlaster, onFound: (IrCode) -> Unit, onDismiss: () -> Unit) {
+    val codes = ir.powerCodes
+    var index by remember { mutableStateOf(0) }
+    var sent by remember { mutableStateOf(false) }
+    fun sendCurrent() {
+        ir.send(codes[index])
+        sent = true
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Find your TV's IR code") },
+        text = {
+            Column {
+                Text(
+                    "Point the phone's top edge at the TV and tap Send. If the TV turns on or off, tap It worked. If not, tap Next.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Spacer(Modifier.height(16.dp))
+                Text("Code ${index + 1} of ${codes.size}", style = MaterialTheme.typography.titleMedium)
+                Text(codes[index].label(), style = MaterialTheme.typography.bodySmall, color = Palette.Muted)
+                Spacer(Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { if (index > 0) { index--; sendCurrent() } }, enabled = index > 0) { Text("Back") }
+                    Button(onClick = ::sendCurrent) { Text("Send") }
+                    OutlinedButton(onClick = { if (index < codes.lastIndex) { index++; sendCurrent() } }, enabled = index < codes.lastIndex) { Text("Next") }
+                }
+            }
+        },
+        confirmButton = { Button(onClick = { onFound(codes[index]) }, enabled = sent) { Text("It worked") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DeviceEditor(
@@ -448,6 +489,24 @@ private fun DeviceEditor(
                     style = MaterialTheme.typography.bodySmall,
                     color = Palette.Muted,
                 )
+            }
+            val ir = LocalContext.current.telly.ir
+            var searchingIr by remember { mutableStateOf(false) }
+            if (ir.available) {
+                SectionHeader("IR power (this phone's IR blaster)", Modifier.padding(top = 12.dp))
+                Text(
+                    d.irPower?.let { "Code saved: ${it.label()}" }
+                        ?: "Turns the TV on even after a power cut, when Wi-Fi can't reach it. Find the code once.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Palette.Muted,
+                )
+                Row {
+                    TextButton(onClick = { searchingIr = true }) { Text(if (d.irPower == null) "Find my TV's code" else "Find again") }
+                    d.irPower?.let { code -> TextButton(onClick = { ir.send(code) }) { Text("Test") } }
+                }
+            }
+            if (searchingIr) {
+                IrSearchDialog(ir, onFound = { d = d.copy(irPower = it); searchingIr = false }, onDismiss = { searchingIr = false })
             }
             TuningSettings(d, tv) { d = it }
             Spacer(Modifier.height(20.dp))
