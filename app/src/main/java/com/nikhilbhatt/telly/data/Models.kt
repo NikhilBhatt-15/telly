@@ -11,7 +11,14 @@ enum class DeviceKind { Box, Tv }
 
 /** What to do before typing a channel number, so the digits land in the live TV app. */
 @Serializable
-enum class TunePrefix { None, LiveTvKey, LiveTvApp }
+enum class TunePrefix {
+    None,
+    LiveTvKey,
+    LiveTvApp,
+
+    /** Press Home first. Airtel boxes take channel numbers on their home screen but not inside apps. */
+    Home,
+}
 
 @Serializable
 data class Device(
@@ -22,11 +29,13 @@ data class Device(
     val mac: String? = null,
     /** Reports the foreground app; a few TVs show an on-screen keyboard prompt when this is on. */
     val trackApps: Boolean = true,
-    val tunePrefix: TunePrefix = TunePrefix.LiveTvKey,
+    val tunePrefix: TunePrefix = if (kind == DeviceKind.Box) TunePrefix.Home else TunePrefix.LiveTvKey,
     val liveTvPackage: String? = null,
     val tuneDelayMs: Int = 1500,
     val digitGapMs: Int = 250,
     val confirmWithOk: Boolean = false,
+    /** Device whose power the power button toggles, e.g. the TV a box is plugged into. Null means this one. */
+    val powerDeviceId: String? = null,
 )
 
 @Serializable
@@ -86,6 +95,10 @@ data class AppData(
     val channelDeviceId: String? = null,
     val haptics: Boolean = true,
     val volumeKeys: Boolean = true,
+    /** Package -> the link that last opened it, tried first next time. */
+    val launchLinks: Map<String, String> = emptyMap(),
+    /** Bumped when stored data needs migrating; see Store.migrate. */
+    val version: Int = 0,
 ) {
     val activeDevice: Device? get() = devices.firstOrNull { it.id == activeDeviceId } ?: devices.firstOrNull()
     fun device(id: String?) = devices.firstOrNull { it.id == id }

@@ -62,7 +62,7 @@ class TellyApp : Application() {
         super.onCreate()
         store = Store(filesDir, scope)
         link = TvLink(scope) { identity() }
-        controller = Controller(scope, link, store)
+        controller = Controller(scope, link, store) { TvLink(scope) { identity() } }
         logos = LogoFinder { store.logoDir }
 
         store.data

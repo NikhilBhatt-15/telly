@@ -375,13 +375,14 @@ private fun TuningSheet(data: AppData, tv: TvState, store: Store, onDismiss: () 
 fun TuningSettings(device: Device, tv: TvState, onChange: (Device) -> Unit) {
     val current = tv.currentApp.takeIf { tv.deviceId == device.id }
     SectionHeader("Before typing the number", Modifier.padding(top = 12.dp))
+    ChoiceRow("Go to the home screen (Airtel boxes)", device.tunePrefix == TunePrefix.Home) { onChange(device.copy(tunePrefix = TunePrefix.Home)) }
     ChoiceRow("Press the Live TV key", device.tunePrefix == TunePrefix.LiveTvKey) { onChange(device.copy(tunePrefix = TunePrefix.LiveTvKey)) }
     ChoiceRow("Open the live TV app", device.tunePrefix == TunePrefix.LiveTvApp) { onChange(device.copy(tunePrefix = TunePrefix.LiveTvApp)) }
     ChoiceRow("Nothing, just type digits", device.tunePrefix == TunePrefix.None) { onChange(device.copy(tunePrefix = TunePrefix.None)) }
 
     SectionHeader("Live TV app", Modifier.padding(top = 12.dp))
     Text(
-        device.liveTvPackage ?: "Not set. Open live TV with the real remote, then tap below.",
+        device.liveTvPackage ?: "Not set yet. Telly learns it the first time it switches to live TV, or open live TV and tap below.",
         style = MaterialTheme.typography.bodyMedium,
         color = if (device.liveTvPackage == null) Palette.Muted else Palette.Text,
     )

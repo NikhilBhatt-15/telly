@@ -98,6 +98,7 @@ class TvLink(
 
     private suspend fun connectLoop(t: LinkTarget) {
         var backoff = 1_000L
+        var rejections = 0
         while (coroutineContext.isActive) {
             if (_state.value.status != LinkStatus.Connected) {
                 _state.update { it.copy(status = LinkStatus.Connecting) }
@@ -124,9 +125,13 @@ class TvLink(
                 !conn.handshakeDone -> lost is SSLException
                 else -> lost is IOException && lost !is SocketTimeoutException
             }
-            if (rejected) {
+            // A TV that is booting or going to sleep drops connections the same way, so only call it
+            // unpaired after repeated rejections, and keep retrying slowly in case it was a false alarm.
+            rejections = if (rejected) rejections + 1 else 0
+            if (rejections >= 3) {
                 _state.update { it.copy(status = LinkStatus.NeedsPairing, screenOn = null) }
-                return
+                delay(15_000)
+                continue
             }
             if (conn.gotMessage) backoff = 1_000L
             _state.update { it.copy(status = LinkStatus.Offline, screenOn = null) }
@@ -139,6 +144,18 @@ class TvLink(
     suspend fun awaitConnected(timeoutMs: Long = 5_000): Boolean =
         withTimeoutOrNull(timeoutMs) { state.first { it.status == LinkStatus.Connected } } != null
 
+    /** Waits until the foreground app satisfies [predicate]; returns the app, or null on timeout. */
+    suspend fun awaitApp(timeoutMs: Long, predicate: (String?) -> Boolean): String? =
+        withTimeoutOrNull(timeoutMs) { state.first { predicate(it.currentApp) } }?.currentApp
+
+    private val _rejected = MutableStateFlow(0 to "")
+
+    /**
+     * The last app link the TV refused because nothing on it can open it, with a running count, so
+     * a caller can note the count before sending and tell whether its own link was refused.
+     */
+    val rejected: StateFlow<Pair<Int, String>> = _rejected.asStateFlow()
+
     suspend fun sendKey(code: Int, direction: KeyDirection = KeyDirection.Short): Boolean = send {
         message(F_KEY_INJECT) {
             int(1, code)
@@ -146,7 +163,7 @@ class TvLink(
         }
     }
 
-    /** Opens a URL with whichever app on the TV handles it, or a package via market://launch?id=. */
+    /** Opens a link with whichever app on the TV handles it; see [rejected] for failures. */
     suspend fun sendLink(link: String): Boolean = send {
         message(F_APP_LINK) { string(1, link) }
     }
@@ -253,6 +270,9 @@ class TvLink(
             msg.message(F_IME_KEY_INJECT)?.message(1)?.string(12)?.takeIf { it.isNotBlank() }?.let { pkg ->
                 _state.update { it.copy(currentApp = pkg) }
             }
+            msg.message(F_ERROR)?.message(2)?.message(F_APP_LINK)?.string(1)?.let { link ->
+                _rejected.update { (count, _) -> (count + 1) to link }
+            }
             msg.message(F_IME_BATCH_EDIT)?.let { edit ->
                 imeCounter = edit.int(1)
                 imeFieldCounter = edit.int(2)
@@ -277,6 +297,7 @@ class TvLink(
         // RemoteMessage field numbers (remotemessage.proto)
         private const val F_CONFIGURE = 1
         private const val F_SET_ACTIVE = 2
+        private const val F_ERROR = 3
         private const val F_PING_REQUEST = 8
         private const val F_PING_RESPONSE = 9
         private const val F_KEY_INJECT = 10

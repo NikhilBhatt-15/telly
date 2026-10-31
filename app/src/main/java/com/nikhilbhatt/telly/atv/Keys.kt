@@ -3,6 +3,7 @@ package com.nikhilbhatt.telly.atv
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
+import java.net.NetworkInterface
 
 /** Android key codes, which are also the RemoteKeyCode values the TV expects. */
 object Keys {
@@ -62,15 +63,30 @@ object Keys {
 }
 
 object WakeOnLan {
-    /** Broadcasts a magic packet. Only helps TVs that keep their network card powered in standby. */
-    fun send(mac: String) {
+    /**
+     * Sends a magic packet to the global broadcast, each local network's broadcast address and the
+     * TV itself, since phones and routers differ in which of those they let through. Only helps
+     * TVs that keep their network card powered while off.
+     */
+    fun send(mac: String, host: String? = null) {
         val macBytes = mac.split(':', '-').map { it.toInt(16).toByte() }
         require(macBytes.size == 6) { "Bad MAC address" }
         val payload = ByteArray(6) { 0xFF.toByte() } + (1..16).flatMap { macBytes }.toByteArray()
+        val targets = buildSet {
+            add(InetAddress.getByName("255.255.255.255"))
+            NetworkInterface.getNetworkInterfaces()?.toList().orEmpty()
+                .filter { runCatching { it.isUp && !it.isLoopback }.getOrDefault(false) }
+                .flatMap { it.interfaceAddresses }
+                .mapNotNullTo(this) { it.broadcast }
+            host?.let { runCatching { InetAddress.getByName(it) }.getOrNull() }?.let(::add)
+        }
         DatagramSocket().use { socket ->
             socket.broadcast = true
-            for (port in intArrayOf(9, 7)) {
-                socket.send(DatagramPacket(payload, payload.size, InetAddress.getByName("255.255.255.255"), port))
+            repeat(3) {
+                for (target in targets) for (port in intArrayOf(9, 7)) {
+                    runCatching { socket.send(DatagramPacket(payload, payload.size, target, port)) }
+                }
+                Thread.sleep(200)
             }
         }
     }

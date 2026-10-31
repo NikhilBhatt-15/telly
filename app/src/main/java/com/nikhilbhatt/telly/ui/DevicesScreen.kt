@@ -1,5 +1,6 @@
 package com.nikhilbhatt.telly.ui
 
+import android.hardware.ConsumerIrManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -135,6 +136,12 @@ fun DevicesScreen(
         SectionHeader("Settings", Modifier.padding(top = 24.dp))
         SettingSwitch("Vibrate on key press", data.haptics) { v -> store.update { it.copy(haptics = v) } }
         SettingSwitch("Phone volume buttons control the TV", data.volumeKeys) { v -> store.update { it.copy(volumeKeys = v) } }
+        val context = LocalContext.current
+        val hasIr = remember { context.getSystemService(ConsumerIrManager::class.java)?.hasIrEmitter() == true }
+        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("IR blaster on this phone", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+            Text(if (hasIr) "Yes" else "No", color = if (hasIr) Palette.Good else Palette.Muted, style = MaterialTheme.typography.labelLarge)
+        }
 
         SectionHeader("How it works", Modifier.padding(top = 24.dp))
         Text(
@@ -163,6 +170,7 @@ fun DevicesScreen(
     editing?.let { d ->
         DeviceEditor(
             initial = d,
+            others = data.devices.filter { it.id != d.id },
             tv = tv,
             onSave = { store.upsertDevice(it); editing = null },
             onRemove = {
@@ -375,6 +383,7 @@ private fun PairSheet(existing: Device?, onDone: (Device) -> Unit, onDismiss: ()
 @Composable
 private fun DeviceEditor(
     initial: Device,
+    others: List<Device>,
     tv: TvState,
     onSave: (Device) -> Unit,
     onRemove: () -> Unit,
@@ -427,6 +436,18 @@ private fun DeviceEditor(
                     )
                 }
                 Switch(checked = d.trackApps, onCheckedChange = { d = d.copy(trackApps = it) })
+            }
+            if (others.isNotEmpty()) {
+                SectionHeader("Power button turns on or off", Modifier.padding(top = 12.dp))
+                ChoiceRow("This device", d.powerDeviceId == null) { d = d.copy(powerDeviceId = null) }
+                others.forEach { o ->
+                    ChoiceRow(o.name, d.powerDeviceId == o.id) { d = d.copy(powerDeviceId = o.id) }
+                }
+                Text(
+                    "Pick the TV this box is plugged into, so the power button switches the TV while you control the box.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Palette.Muted,
+                )
             }
             TuningSettings(d, tv) { d = it }
             Spacer(Modifier.height(20.dp))
