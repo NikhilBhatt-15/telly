@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- antenna -->
+    <path android:strokeColor="#FFFFFF" android:strokeWidth="3.5" android:strokeLineCap="round"
+        android:pathData="M46,33 L54,40 L62,33" />
+    <!-- screen -->
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M38,40 L70,40 A8,8 0 0 1 78,48 L78,68 A8,8 0 0 1 70,76 L38,76 A8,8 0 0 1 30,68 L30,48 A8,8 0 0 1 38,40 Z" />
+    <!-- play mark -->
+    <path android:fillColor="#E8452C" android:pathData="M49,50 L62,58 L49,66 Z" />
+</vector>
