@@ -506,7 +506,17 @@ private fun DeviceEditor(
                 }
             }
             if (searchingIr) {
-                IrSearchDialog(ir, onFound = { d = d.copy(irPower = it); searchingIr = false }, onDismiss = { searchingIr = false })
+                val store = LocalContext.current.telly.store
+                IrSearchDialog(
+                    ir,
+                    onFound = { code ->
+                        d = d.copy(irPower = code)
+                        // Save right away: the search is too tedious to lose by closing the sheet without Save.
+                        store.data.value.device(initial.id)?.let { store.upsertDevice(it.copy(irPower = code)) }
+                        searchingIr = false
+                    },
+                    onDismiss = { searchingIr = false },
+                )
             }
             TuningSettings(d, tv) { d = it }
             Spacer(Modifier.height(20.dp))
